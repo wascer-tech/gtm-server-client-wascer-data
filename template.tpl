@@ -309,7 +309,7 @@ if (method === 'OPTIONS') {
 }
 
 const body = getRequestBody();
-let event = JSON.parse(body);
+let event = body ? JSON.parse(body) : {};
 
 if (getType(event) !== 'object') {
   setResponseStatus(400);
@@ -446,6 +446,43 @@ ___TESTS___
 scenarios:
 - name: Quick Test
   code: runCode();
+- name: Empty body runs the container with an empty event
+  code: |-
+    mock('getRequestPath', '/data');
+    mock('getRequestMethod', 'POST');
+    mock('getRequestBody', '');
+    mock('runContainer', (event, onComplete) => {
+      onComplete();
+    });
+
+    runCode({path: [{path: '/data'}]});
+
+    assertApi('runContainer').wasCalled();
+    assertApi('setResponseStatus').wasCalledWith(200);
+- name: Body with data still runs the container
+  code: |-
+    mock('getRequestPath', '/data');
+    mock('getRequestMethod', 'POST');
+    mock('getRequestBody', '{"event_name":"purchase"}');
+    mock('runContainer', (event, onComplete) => {
+      assertThat(event.event_name).isEqualTo('purchase');
+      onComplete();
+    });
+
+    runCode({path: [{path: '/data'}]});
+
+    assertApi('runContainer').wasCalled();
+    assertApi('setResponseStatus').wasCalledWith(200);
+- name: Invalid body is still rejected
+  code: |-
+    mock('getRequestPath', '/data');
+    mock('getRequestMethod', 'POST');
+    mock('getRequestBody', 'abc');
+
+    runCode({path: [{path: '/data'}]});
+
+    assertApi('runContainer').wasNotCalled();
+    assertApi('setResponseStatus').wasCalledWith(400);
 setup: ''
 
 
